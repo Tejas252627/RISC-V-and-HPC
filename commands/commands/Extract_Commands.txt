@@ -1,0 +1,86 @@
+https://www.linuxjournal.com/content/diy-build-custom-minimal-linux-distribution-source
+
+		Make tool chain(riscv64-unknown-linux-gnu)... OK (https://github.com/riscv/riscv-gnu-toolchain)
+
+
+64-bit
+gv not gcv
+riscv64-unknown-linux-gnu
+
+
+		Prepare .tar 
+Reference:-
+    binutils-2.30.tar.xz
+    busybox-1.28.3.tar.bz2
+    clfs-embedded-bootscripts-1.0-pre5.tar.bz2
+    gcc-7.3.0.tar.xz
+    glibc-2.27.tar.xz
+    gmp-6.1.2.tar.bz2
+    linux-4.16.3.tar.xz
+    mpc-1.1.0.tar.gz
+    mpfr-4.0.1.tar.xz
+    zlib-1.2.11.tar.gz
+(
+.
+├── binutils
+│   └── binutils-2.39-9.fc38.src.rpm
+├── busybox
+│   └── busybox-1.36.0-2.fc38.src.rpm
+├── clfs
+│   └── clfs-embedded-bootscripts-1.0-pre5.tar.bz2
+├── gcc
+│   └── gcc-13.0.1-0.12.fc38.src.rpm
+├── glibc
+│   └── glibc-2.37-1.fc38.src.rpm
+├── gmp
+│   └── gmp-6.2.1-4.fc38.src.rpm
+├── linux
+│   ├── linux-6.7.3.tar.xz
+│   └── linux-6.7.tar.xz
+├── mpc
+│   └── mpc-0.34-4.fc38.src.rpm
+├── mpfr
+│   └── mpfr-4.1.1-3.fc38.src.rpm
+└── zlib
+    └── zlib-1.2.13-3.fc38.src.rpm
+
+11 directories, 11 files
+    
+links:-  
+linux kernel(f38) --> https://cdn.kernel.org/pub/linux/kernel/ ==> 6.7.3-100.fc38
+)
+
+rpm to tar ==> https://www.thegeekdiary.com/how-to-use-rpm2cpio-command-in-linux/#google_vignette
+rpm2cpio <pkg> | cpio -idum
+
+
+copy all binaries of os from /
+From / => lib64 bin lib sbin dev
+From usr => bin lib64 sbin local libexcec
+
+Compress and backup
+sudo 7z a -tzip newroot1_chroot.zip newroot1/ -mx1 -mmt=8//$(nproc)
+
+extracting tars ==>
+tar xJf gcc-13.0.1-20230401.tar.xz
+sudo tar xJf binutils-2.39.tar.xz 
+  124  sudo mv binutils-2.39 gcc-13.0.1-20230401/binutils 
+  125  sudo tar xjf clfs-embedded-bootscripts-1.0-pre5.tar.bz2 
+  126  sudo mv clfs-embedded-bootscripts-1.0-pre5 gcc-13.0.1-20230401/clfs
+  127  sudo tar xJf glibc-2.37.tar.xz 
+  128  sudo mv glibc-2.37 gcc-13.0.1-20230401/glibc
+  129  sudo tar xJf gmp-6.2.1.tar.xz 
+  130  sudo mv gmp-6.2.1 gcc-13.0.1-20230401/gmp
+  131  sudo tar xJf linux-6.7.3.tar.xz 
+  132  sudo mv linux-6.7.3/ gcc-13.0.1-20230401/linux
+  133  sudo tar xJf mpc-0.34.tar.xz 
+  134  sudo mv mpc-0.34 gcc-13.0.1-20230401/mpc
+  135  sudo tar xJf mpfr-4.1.1.tar.xz 
+  136  sudo mv mpfr-4.1.1 gcc-13.0.1-20230401/mpfr
+  137  sudo tar xJf zlib-1.2.13.tar.xz 
+  138  sudo mv zlib-1.2.13 gcc-13.0.1-20230401/zlib
+  139  sudo tar xjf busybox-1.36.0.tar.bz2 
+  140  sudo mv busybox-1.36.0 gcc-13.0.1-20230401/busybox
+
+copy some extracted tar into /p5/newroot1/my_gcc
+copy binutils-2.39-9 into root (/ or /p5/newroot1)

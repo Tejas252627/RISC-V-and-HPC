@@ -1,0 +1,472 @@
+  42  export LJOS=~/lj-os
+   43   mkdir -pv ${LJOS}
+   44  export LC_ALL=POSIX
+   45  export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin
+   46  mkdir -pv ${LJOS}/{bin,boot{,grub},dev,{etc/,}opt,home,lib/{firmware,modules},lib64,mnt}
+   47  cd lj-os
+   48  ls
+   49  cd boot
+   50  mkdir grub
+   51  cd ..
+   52  mkdir -pv ${LJOS}/{proc,media/{floppy,cdrom},sbin,srv,sys}
+   53  mkdir -pv ${LJOS}/var/{lock,log,mail,run,spool}
+   54  mkdir -pv ${LJOS}/var/{opt,cache,lib/{misc,locate},local}
+   55  install -dv -m 0750 ${LJOS}/root
+   56  install -dv -m 1777 ${LJOS}{/var,}/tmp
+   57  install -dv ${LJOS}/etc/init.d
+   58  mkdir -pv ${LJOS}/usr/{,local/}{bin,include,lib{,64},sbin,src}
+   59  mkdir -pv ${LJOS}/usr/{,local/}share/{doc,info,locale,man}
+   60  mkdir -pv ${LJOS}/usr/{,local/}share/{misc,terminfo,zoneinfo}
+   61  mkdir -pv ${LJOS}/usr/{,local/}share/man/man{1,2,3,4,5,6,7,8}
+   62  for dir in ${LJOS}/usr{,/local}; do      ln -sv share/{man,doc,info} ${dir};    done
+   63  install -dv ${LJOS}/cross-tools{,/bin}
+   64  ln -svf ../proc/mounts ${LJOS}/etc/mtab
+   65  cat > ${LJOS}/etc/passwd << "EOF"
+root::0:0:root:/root:/bin/ash
+EOF
+
+   66  cat > ${LJOS}/etc/group << "EOF"
+root:x:0:
+bin:x:1:
+sys:x:2:
+kmem:x:3:
+tty:x:4:
+daemon:x:6:
+disk:x:8:
+dialout:x:10:
+video:x:12:
+utmp:x:13:
+usb:x:14:
+EOF
+
+   67  cat > ${LJOS}/etc/fstab << "EOF"
+# file system  mount-point  type   options          dump  fsck
+#                                                         order
+
+rootfs          /               auto    defaults        1      1
+proc            /proc           proc    defaults        0      0
+sysfs           /sys            sysfs   defaults        0      0
+devpts          /dev/pts        devpts  gid=4,mode=620  0      0
+tmpfs           /dev/shm        tmpfs   defaults        0      0
+EOF
+
+   68  cat > ${LJOS}/etc/profile << "EOF"
+export PATH=/bin:/usr/bin
+
+if [ `id -u` -eq 0 ] ; then
+        PATH=/bin:/sbin:/usr/bin:/usr/sbin
+        unset HISTFILE
+fi
+
+
+# Set up some environment variables.
+export USER=`id -un`
+export LOGNAME=$USER
+export HOSTNAME=`/bin/hostname`
+export HISTSIZE=1000
+export HISTFILESIZE=1000
+export PAGER='/bin/more '
+export EDITOR='/bin/vi'
+EOF
+
+   69  echo "ljos-test" > ${LJOS}/etc/HOSTNAME
+   70  cat > ${LJOS}/etc/issue<< "EOF"
+Linux Journal OS 0.1a
+Kernel \r on an \m
+
+EOF
+
+   71  cat > ${LJOS}/etc/inittab<< "EOF"
+::sysinit:/etc/rc.d/startup
+
+tty1::respawn:/sbin/getty 38400 tty1
+tty2::respawn:/sbin/getty 38400 tty2
+tty3::respawn:/sbin/getty 38400 tty3
+tty4::respawn:/sbin/getty 38400 tty4
+tty5::respawn:/sbin/getty 38400 tty5
+tty6::respawn:/sbin/getty 38400 tty6
+
+::shutdown:/etc/rc.d/shutdown
+::ctrlaltdel:/sbin/reboot
+EOF
+
+   72  cat > ${LJOS}/etc/mdev.conf<< "EOF"
+# Devices:
+# Syntax: %s %d:%d %s
+# devices user:group mode
+
+# null does already exist; therefore ownership has to
+# be changed with command
+null    root:root 0666  @chmod 666 $MDEV
+zero    root:root 0666
+grsec   root:root 0660
+full    root:root 0666
+
+random  root:root 0666
+urandom root:root 0444
+hwrandom root:root 0660
+
+# console does already exist; therefore ownership has to
+# be changed with command
+console root:tty 0600 @mkdir -pm 755 fd && cd fd && for x
+ ↪in 0 1 2 3 ; do ln -sf /proc/self/fd/$x $x; done
+
+kmem    root:root 0640
+mem     root:root 0640
+port    root:root 0640
+ptmx    root:tty 0666
+
+# ram.*
+ram([0-9]*)     root:disk 0660 >rd/%1
+loop([0-9]+)    root:disk 0660 >loop/%1
+sd[a-z].*       root:disk 0660 */lib/mdev/usbdisk_link
+hd[a-z][0-9]*   root:disk 0660 */lib/mdev/ide_links
+
+tty             root:tty 0666
+tty[0-9]        root:root 0600
+tty[0-9][0-9]   root:tty 0660
+ttyO[0-9]*      root:tty 0660
+pty.*           root:tty 0660
+vcs[0-9]*       root:tty 0660
+vcsa[0-9]*      root:tty 0660
+
+ttyLTM[0-9]     root:dialout 0660 @ln -sf $MDEV modem
+ttySHSF[0-9]    root:dialout 0660 @ln -sf $MDEV modem
+slamr           root:dialout 0660 @ln -sf $MDEV slamr0
+slusb           root:dialout 0660 @ln -sf $MDEV slusb0
+fuse            root:root  0666
+
+# misc stuff
+agpgart         root:root 0660  >misc/
+psaux           root:root 0660  >misc/
+rtc             root:root 0664  >misc/
+
+# input stuff
+event[0-9]+     root:root 0640 =input/
+ts[0-9]         root:root 0600 =input/
+
+# v4l stuff
+vbi[0-9]        root:video 0660 >v4l/
+video[0-9]      root:video 0660 >v4l/
+
+# load drivers for usb devices
+usbdev[0-9].[0-9]       root:root 0660 */lib/mdev/usbdev
+usbdev[0-9].[0-9]_.*    root:root 0660
+EOF
+
+   73  cat > ${LJOS}/boot/grub/grub.cfg<< "EOF"
+
+set default=0
+set timeout=5
+
+set root=(hd0,1)
+
+menuentry "Linux Journal OS 0.1a" {
+        linux   /boot/vmlinuz-4.16.3 root=/dev/sda1 ro quiet
+}
+EOF
+
+   74  touch ${LJOS}/var/run/utmp ${LJOS}/var/log/{btmp,lastlog,wtmp}
+   75  chmod -v 664 ${LJOS}/var/run/utmp ${LJOS}/var/log/lastlog
+   76  unset CFLAGS
+   77  unset CXXFLAGS
+   78  export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/_[^-]*/-cross/")
+   79   export LJOS_TARGET=riscv-unknown-linux-gnu
+   80   export LJOS_CPU=rv64gv_zfh
+   81   export LJOS_ARCH=riscv
+   82   export LJOS_ENDIAN=little
+   83  export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/")
+   84  echo $LJOS_HOST
+   85  echo $LJOS_TARGET
+   86  echo $LJOS_CPU
+   87  clear
+   88  ls
+   89  scp rushi@102.08.23.155
+   90  ssh rushi@102.08.23.155
+   91  ssh rushi@10.208.23.155
+   92  scp rushi@10.208.23.155:/home/rushi/packeges ./
+   93  scp -r rushi@10.208.23.155:/home/rushi/packages ./
+   94  scp -r rushi@10.208.23.155:/home/rushi/packages.tar.xz ./
+   95  ls
+   96  rm -rf packages
+   97  clear
+   98  ls
+   99  tar xJf packages.tar.xz
+  100  ls
+  101  cd packages/
+  102  ls
+  103  clear
+  104  ls
+  105  tar xJf gcc-12.2.0.tar.xz
+  106  clear
+  107  ls
+  108  clear
+  109  ls
+  110  tar xzf mpc-1.2.1.tar.gz
+  111  tar xJf mpfr-4.1.0.tar.xz
+  112  clea
+  113  clear
+  114  ls
+  115  clear
+  116  ls
+  117  tar xzf gmp-6.2.1.tar.xz
+  118  tar xJf gmp-6.2.1.tar.xz
+  119  clear
+  120  ls
+  121  cd gcc-12.2.0/
+  122  ls
+  123  ./configure --help
+  124  clear
+  125  ls
+  126  cd ..
+  127  ls
+  128  ckear
+  129  ks
+  130  clear
+  131  ls
+  132  cp gmp-6.2.1 gcc-12.2.0/gmp
+  133  cp gmp-6.2.1/* gcc-12.2.0/gmp
+  134  mkdir gcc-12.2.0/gmp
+  135  cp gmp-6.2.1/* gcc-12.2.0/gmp
+  136  cp -r gmp-6.2.1/* gcc-12.2.0/gmp
+  137  mkdir gcc-12.2.0/mpc
+  138  cp -r mpc-1.2.1/* gcc-12.2.0/mpc
+  139  cp -r mpfr-4.1.0/* gcc-12.2.0/mpfr
+  140  mkdir gcc-12.2.0/mpfr
+  141  cp -r mpfr-4.1.0/* gcc-12.2.0/mpfr
+  142  cd gcc-12.2.0/
+  143  ls
+  144  cd mpc/
+  145  ls
+  146  cd ..
+  147  cler
+  148  ls
+  149  tar xJf linux-5.19.2.tar.xz
+  150  cd ..
+  151  clear
+  152  ls
+  153  cd packages/linux-5.19.2/
+  154  s
+  155  ls
+  156  make ARCH=${LJOS_ARCH} headers_check && make ARCH=${LJOS_ARCH} INSTALL_HDR_PATH=${LJOS}/usr headers_install
+  157  make ARCH=${LJOS_ARCH} && make ARCH=${LJOS_ARCH} INSTALL_HDR_PATH=${LJOS}/usr headers_install
+  158  make ARCH=${LJOS_ARCH} INSTALL_HDR_PATH=${LJOS}/usr headers_install
+  159  cd ..
+  160  cd lj-os/
+  161  ls
+  162  cd /usr/
+  163  ls
+  164  cd include/
+  165  ls
+  166  cd ../..
+  167  ls
+  168  cd ..
+  169  ls
+  170  cd
+  171  ls
+  172  cd lj-os/
+  173  ls
+  174  cd usr/include/
+  175  ls
+  176  cd ../..
+  177  cd ..
+  178  ls
+  179  clear
+  180  ls
+  181  mkdir binutils-build
+  182  cd binutils-build/
+  183  ls
+  184  cd ../
+  185  cd packages/
+  186  ls
+  187  tar xJf binutils-2.39.tar.xz
+  188  cd ../
+  189  ls
+  190  cd binutils-build/
+  191  ls
+  192  ../binutils-2.39/configure --prefix=${LJOS}/cross-tools --target=${LJOS_TARGET} --with-sysroot=${LJOS} --disable-nls --enable-shared --disable-multilib
+  193  ../packages/binutils-2.39/configure --prefix=${LJOS}/cross-tools --target=${LJOS_TARGET} --with-sysroot=${LJOS} --disable-nls --enable-shared --disable-multilib
+  194  make configure-host && make
+  195  nproc
+  196  make configure-host -j4 && make -j4
+  197  ln -sv lib ${LJOS}/cross-tools/lib64
+  198  make install
+  199  cp -v ../binutils-2.30/include/libiberty.h ${LJOS}/usr/include
+  200  cp -v ../packages/binutils-2.39/include/libiberty.h ${LJOS}/usr/include
+  201  cd ..
+  202  clea
+  203  rls
+  204  clear
+  205  ls
+  206  mkdir gcc-static
+  207  cd gcc-static/
+  208  AR=ar LDFLAGS="-Wl,-rpath,${LJOS}/cross-tools/lib" ../packages/gcc-12.2.0/configure --prefix=${LJOS}/cross-tools --build=${LJOS_HOST} --host=${LJOS_HOST} --target=${LJOS_TARGET} --with-sysroot=${LJOS}/target --disable-nls --disable-shared --with-mpfr-include=$(pwd)/../packages/gcc-12.2.0/mpfr/src --with-mpfr-lib=$(pwd)/mpfr/src/.libs --without-headers --with-newlib --disable-decimal-float --disable-libgomp --disable-libmudflap --disable-libssp --disable-threads --enable-languages=c,c++ --disable-multilib --with-arch=${LJOS_CPU} --with-abi=lp64d
+  209  make all-gcc all-target-libgcc -j4
+  210  dnf install autoconf
+  211  make all-gcc all-target-libgcc -j4
+  212  ls
+  213  cd libiberty/
+  214  ls
+  215  cd ..
+  216  clear
+  217  l
+  218  ls
+  219  make all-gcc all-target-libgcc all-target-libstdc++-v3 -j4
+  220  AR=ar LDFLAGS="-Wl,-rpath,${LJOS}/cross-tools/lib" ../packages/gcc-12.2.0/configure --prefix=${LJOS}/cross-tools --build=${LJOS_HOST} --host=${LJOS_HOST} --target=${LJOS_TARGET} --with-sysroot=${LJOS}/target --disable-nls --disable-shared --with-mpfr-include=$(pwd)/../packages/gcc-12.2.0/mpfr/src --with-mpfr-lib=$(pwd)/mpfr/src/.libs --without-headers --with-newlib --disable-decimal-float --disable-libgomp --disable-libmudflap --disable-libssp --disable-threads --enable-languages=c,c++ --disable-multilib --with-arch=${LJOS_CPU} --with-abi=lp64d --with-sdtc++-v3
+  221  make all-gcc all-target-libgcc all-target-libstdc++-v3 -j4
+  222  make all-gcc all-target-libgcc -j4
+  223  make install-gcc install-target-libgcc -j4
+  224  ls
+  225  cd ..
+  226  ls
+  227  cd lj-os/
+  228  ls
+  229  cd cross-tools/
+  230  ls
+  231  cd lib64/
+  232  ls
+  233  cd gcc/
+  234  ls
+  235  cd riscv-unknown-linux-gnu/
+  236  ls
+  237  cd 12.2.0/
+  238  ls
+  239  cd ../..
+  240  cd ..
+  241  ls
+  242  cd ..
+  243  l
+  244  ls
+  245  find . -name libstdc++
+  246  grep -r libstdc++. .
+  247  clear
+  248  ls
+  249  cd ../..
+  250  ls
+  251  cd gcc-static/
+  252  ls
+  253  mkdir libstdc++
+  254  cd libstdc++/
+  255  ls
+  256  ../../packages/gcc-12.2.0/libstdc++-v3/configure               --host=${LJOS_HOST}                     --build=$(../config.guess)          --prefix=${LJOS}/cross-tools                       --disable-multilib                  --disable-nls                       --disable-libstdcxx-pch
+  257  ../../packages/gcc-12.2.0/libstdc++-v3/configure               --host=${LJOS_HOST} --target=${LJOS_TARGET}                     --build=$(../config.guess)          --prefix=${LJOS}/cross-tools                       --disable-multilib                  --disable-nls                       --disable-libstdcxx-pch
+  258  clear
+  259  ls
+  260  rm config.log
+  261  ../../packages/gcc-12.2.0/libstdc++-v3/configure               --host=${LJOS_HOST} --target=${LJOS_TARGET}                     --prefix=${LJOS}/cross-tools                       --disable-multilib                  --disable-nls                       --disable-libstdcxx-pch
+  262  ls
+  263  find . -name largefile-config.h
+  264  vi /include/x86_64-cross-linux-gnu/bits/largefile-config.h
+  265  pwd
+  266  sudo vi /include/x86_64-cross-linux-gnu/bits/largefile-config.h
+  267  cd include/x86_64-cross-linux-gnu/bits/
+  268  ls
+  269  ll
+  270  cd ../../..
+  271  ls
+  272  cler
+  273  clear
+  274  ls
+  275  cd ..
+  276  ls
+  277  cd ..
+  278  cd gcc-static/
+  279  cd ..
+  280  l
+  281  ld
+  282  ls
+  283  cd packages/gcc-12.2.0/
+  284  s
+  285  ls
+  286  cd libstdc++-v3/
+  287  ls
+  288  cd include/
+  289  ls
+  290  cd tr1/
+  291  ls
+  292  cd ../../..
+  293  cd ../..
+  294  ls
+  295  cd gcc-static/
+  296  ls
+  297  cd libstdc++/
+  298  ls
+  299  make -j4
+  300  ls
+  301  cd ../
+  302  cd ..
+  303  cd packages/gcc-12.2.0/libstdc++-v3/
+  304  ls
+  305  ./configure --help
+  306  cd ../../
+  307  cd ..
+  308  cd gcc-static/c
+  309  cd gcc-static/libstdc++/
+  310  ls
+  311  make install
+  312  cd ../..
+  313  cd lj-os/cross-tools/
+  314  ls
+  315  cd lib64/
+  316  s
+  317  ls
+  318  cd ..
+  319  ls
+  320  cd ..
+  321  ls
+  322  cd gcc-static/
+  323  ln -vs libgcc.a `${LJOS_TARGET}-gcc -print-libgcc-file-name | sed 's/libgcc/&_eh/'`
+  324  cd ..
+  325  cd packages
+  326  ls grep | glibc
+  327  ls
+  328  tar xJf glibc-2.36.tar.xz
+  329  cd ..
+  330  ls
+  331  mkdir glibc-build
+  332  cd glibc-build/
+  333  echo "libc_cv_forced_unwind=yes" > config.cache
+  334  echo "libc_cv_c_cleanup=yes" >> config.cache
+  335  echo "libc_cv_ssp=no" >> config.cache
+  336  echo "libc_cv_ssp_strong=no" >> config.cache
+  337  cd ..
+  338  cd packages
+  339  ls
+  340  cd ../glibc-build
+  341* BUILD_CC="gcc" CC="${LJOS_TARGET}-gcc" AR="${LJOS_TARGET}-ar" RANLIB="${LJOS_TARGET}-ranlib" CFLAGS="-O2" ../packages/glibc-2.36/configure --prefix=/usr --host=${LJOS_TARGET} --build=${LJOS_HOST} --disable-profile --enable-add-ons --with-tls --enable-kernel=2.6.32 --with-__thread --with-binutils=${LJOS}/cross-tools/bin --with-headers=${LJOS}/usr/include --cache-file=conf
+  342  make -j4
+  343  echo $LJOS
+  344* AR=ar LDFLAGS="-Wl,-rpath,${LJOS}/cross-tools/lib" \
+../gcc-7.3.0/configure --prefix=${LJOS}/cross-tools \
+--build=${LJOS_HOST} --target=${LJOS_TARGET} \
+--host=${LJOS_HOST} --with-sysroot=${LJOS} \
+--disable-nls --enable-shared \
+--enable-languages=c,c++ --enable-c99 \
+--enable-long-long \
+--with-mpfr-include=$(pwd)/../gcc-7.3.0/mpfr/src \
+--with-mpfr-lib=$(pwd)/mpfr/src/.libs \
+--disable-multilib --with-arch=${LJOS_CPU}
+  345  cd ..
+  346  ls
+  347  mkdir gcc-build
+  348  cd gcc-build/
+  349* AR=ar LDFLAGS="-Wl,-rpath,${LJOS}/cross-tools/lib" ../packages/gcc-12.2.0/configure --prefix=${LJOS}/cross-tools --build=${LJOS_HOST} --target=${LJOS_TARGET} --host=${LJOS_HOST} --with-sysroot=${LJOS} --disable-nls --enable-shared --enable-languages=c,c++ --enable-c99 --enable-long-long --with-mpfr-include=$(pwd)/../packages/gcc-12.2.0/mpfr/src --with-mpfr-lib=$(pwd)/mpfr/src/.libs --disable-multilib --with-arch=${LJO
+  350  make -j4
+  351  make install -j4
+  352* cd ..r
+  353  cd lj-os/
+  354  cd cross-tools/
+  355  cd bin/
+  356  ls
+  357  readelf riscv-unknown-linux-gnu-gcc
+  358  readelf -A riscv-unknown-linux-gnu-gcc
+  359  readelf -a riscv-unknown-linux-gnu-gcc
+  360  readelf --help
+  361  readelf -A riscv-unknown-linux-gnu-gcc
+  362  readelf -V riscv-unknown-linux-gnu-gcc
+  363  readelf -a riscv-unknown-linux-gnu-gcc
+  364  readelf -a riscv-unknown-linux-gnu-gcc | less
+  365  riscv-unknown-linux-gnu-readelf -A
+  366  cd ..
+  367  cd ../..
+  368  ls

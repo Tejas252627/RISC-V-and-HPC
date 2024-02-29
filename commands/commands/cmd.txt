@@ -1,0 +1,11 @@
+sudo dnf install gcc
+
+/newroot# git clone https://github.com/riscv/riscv-gnu-toolchain
+
+sudo yum install autoconf automake python3 libmpc-devel mpfr-devel gmp-devel gawk  bison flex texinfo patchutils gcc gcc-c++ zlib-devel expat-devel -y
+
+cd riscv-gnu-toolchain/
+
+/riscv-gnu-toolchain$ export install_PATH=~/Documents/newroot
+/riscv-gnu-toolchain$ ./configure --prefix=$install_PATH --with-arch=rv64gv --with-abi=lp64d
+/riscv-gnu-toolchain$ make linux

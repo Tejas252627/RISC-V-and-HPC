@@ -1,0 +1,41 @@
+==> use gv instead gcv
+==> https://github.com/riscv-collab/riscv-gnu-toolchain
+==> --enable-languages=c,c++,fortran,objc,obj-c++,ada,go,d,m2,lto --with-arch=rv64gv --with-abi=lp64d
+
+git clone https://github.com/riscv/riscv-gnu-toolchain
+
+sudo yum install autoconf automake python3 libmpc-devel mpfr-devel gmp-devel gawk  bison flex texinfo patchutils gcc gcc-c++ zlib-devel expat-devel -y
+ 
+cd riscv-gnu-toolchain/
+/riscv-gnu-toolchain$ export install_PATH=~/Documents/newroot
+/riscv-gnu-toolchain$ ./configure --prefix=$install_PATH
+sudo make or make
+
+###### You should now be able to use riscv64-unknown-elf-gcc and its cousins.
+
+/riscv-gnu-toolchain$ ./configure --prefix=$install_PATH
+/riscv-gnu-toolchain$  make linux
+
+/////////////////////
+Supported architectures are rv32i or rv64i plus standard extensions (a)tomics, (m)ultiplication and division, (f)loat, (d)ouble, or (g)eneral for MAFD.
+
+Supported ABIs are ilp32 (32-bit soft-float), ilp32d (32-bit hard-float), ilp32f (32-bit with single-precision in registers and double in memory, niche use only), lp64 lp64f lp64d (same but with 64-bit long and pointers).
+/////////////////////
+
+/riscv-gnu-toolchain$ ./configure --prefix=$install_PATH --with-arch=rv64gv --with-abi=lp64d
+/riscv-gnu-toolchain$ make linux
+
+//////////////////////////////////////////////////////////////////////////////////////
+/riscv-gnu-toolchain$ ./configure --prefix=$install_PATH --enable-multilib
+
+			############################## Actual Commands ########################
+/newroot# git clone https://github.com/riscv/riscv-gnu-toolchain
+
+sudo yum install autoconf automake python3 libmpc-devel mpfr-devel gmp-devel gawk  bison flex texinfo patchutils gcc gcc-c++ zlib-devel expat-devel -y
+
+cd riscv-gnu-toolchain/
+
+/riscv-gnu-toolchain$ export install_PATH=/p5/newroot# ~/Documents/newroot
+/riscv-gnu-toolchain$ ./configure --prefix=$install_PATH --with-arch=rv64gv --with-abi=lp64d --enable-languages=c,c++,fortran,objc,obj-c++,ada,go,d,m2,lto
+extra flags ==> --enable-languages=c,c++,fortran,objc,obj-c++,ada,go,d,m2,lto --with-arch=rv64gv --with-abi=lp64d
+/riscv-gnu-toolchain$ make linux

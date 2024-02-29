@@ -1,0 +1,821 @@
+https://www.linuxjournal.com/content/diy-build-custom-minimal-linux-distribution-source
+
+		Make tool chain(riscv64-unknown-linux-gnu)... OK (https://github.com/riscv/riscv-gnu-toolchain)
+
+
+64-bit
+gv not gcv
+riscv64-unknown-linux-gnu
+
+
+		Prepare .tar 
+Reference:-
+    binutils-2.30.tar.xz
+    busybox-1.28.3.tar.bz2
+    clfs-embedded-bootscripts-1.0-pre5.tar.bz2
+    gcc-7.3.0.tar.xz
+    glibc-2.27.tar.xz
+    gmp-6.1.2.tar.bz2
+    linux-4.16.3.tar.xz
+    mpc-1.1.0.tar.gz
+    mpfr-4.0.1.tar.xz
+    zlib-1.2.11.tar.gz
+(
+.
+├── binutils
+│   └── binutils-2.39-9.fc38.src.rpm
+├── busybox
+│   └── busybox-1.36.0-2.fc38.src.rpm
+├── clfs
+│   └── clfs-embedded-bootscripts-1.0-pre5.tar.bz2
+├── gcc
+│   └── gcc-13.0.1-0.12.fc38.src.rpm
+├── glibc
+│   └── glibc-2.37-1.fc38.src.rpm
+├── gmp
+│   └── gmp-6.2.1-4.fc38.src.rpm
+├── linux
+│   ├── linux-6.7.3.tar.xz
+│   └── linux-6.7.tar.xz
+├── mpc
+│   └── mpc-0.34-4.fc38.src.rpm
+├── mpfr
+│   └── mpfr-4.1.1-3.fc38.src.rpm
+└── zlib
+    └── zlib-1.2.13-3.fc38.src.rpm
+
+11 directories, 11 files
+    
+links:-  
+linux kernel(f38) --> https://cdn.kernel.org/pub/linux/kernel/ ==> 6.7.3-100.fc38
+)
+
+rpm to tar ==> https://www.thegeekdiary.com/how-to-use-rpm2cpio-command-in-linux/#google_vignette
+rpm2cpio <pkg> | cpio -idum
+
+
+copy all binaries of os from /
+From / => lib64 bin lib sbin dev
+From usr => bin lib64 sbin local libexcec
+
+Compress and backup
+sudo 7z a -tzip newroot1_chroot.zip newroot1/ -mx1 -mmt=$(nproc)
+
+extracting tars ==>
+tar xJf gcc-13.0.1-20230401.tar.xz
+sudo tar xJf binutils-2.39.tar.xz 
+  124  sudo mv binutils-2.39 gcc-13.0.1-20230401/binutils 
+  125  sudo tar xjf clfs-embedded-bootscripts-1.0-pre5.tar.bz2 
+  126  sudo mv clfs-embedded-bootscripts-1.0-pre5 gcc-13.0.1-20230401/clfs
+  127  sudo tar xJf glibc-2.37.tar.xz 
+  128  sudo mv glibc-2.37 gcc-13.0.1-20230401/glibc
+  129  sudo tar xJf gmp-6.2.1.tar.xz 
+  130  sudo mv gmp-6.2.1 gcc-13.0.1-20230401/gmp
+  131  sudo tar xJf linux-6.7.3.tar.xz 
+  132  sudo mv linux-6.7.3/ gcc-13.0.1-20230401/linux
+  133  sudo tar xJf mpc-0.34.tar.xz 
+  134  sudo mv mpc-0.34 gcc-13.0.1-20230401/mpc
+  135  sudo tar xJf mpfr-4.1.1.tar.xz 
+  136  sudo mv mpfr-4.1.1 gcc-13.0.1-20230401/mpfr
+  137  sudo tar xJf zlib-1.2.13.tar.xz 
+  138  sudo mv zlib-1.2.13 gcc-13.0.1-20230401/zlib
+  139  sudo tar xjf busybox-1.36.0.tar.bz2 
+  140  sudo mv busybox-1.36.0 gcc-13.0.1-20230401/busybox
+
+copy some extracted tar into /p5/newroot1/my_gcc
+copy binutils-2.39-9 into root (/ or /p5/newroot1)
+
+////////////////////////////////////////////////////////////////////
+set +h  
+umask 022
+export LJOS=/lj-os
+mkdir -pv ${LJOS}
+sudo mkdir -pv ${LJOS}
+export LC_ALL=POSIX
+echo $LJOS
+
+export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin
+
+mkdir -pv ${LJOS}/{bin,boot/{,grub},dev,{etc/,}opt,home,lib/{firmware,modules},lib64,mnt}
+mkdir -pv ${LJOS}/{proc,media/{floppy,cdrom},sbin,srv,sys}
+mkdir -pv ${LJOS}/var/{lock,log,mail,run,spool}
+mkdir -pv ${LJOS}/var/{opt,cache,lib/{misc,locate},local}
+install -dv -m 0750 ${LJOS}/root
+install -dv -m 1777 ${LJOS}{/var,}/tmp
+install -dv ${LJOS}/etc/init.d
+
+mkdir -pv ${LJOS}/usr/{,local/}{bin,include,lib{,64},sbin,src}
+mkdir -pv ${LJOS}/usr/{,local/}share/{doc,info,locale,man}
+mkdir -pv ${LJOS}/usr/{,local/}share/{misc,terminfo,zoneinfo}
+mkdir -pv ${LJOS}/usr/{,local/}share/man/man{1,2,3,4,5,6,7,8}
+for dir in ${LJOS}/usr{,/local}; do
+     ln -sv share/{man,doc,info} ${dir}
+   done
+   
+install -dv ${LJOS}/cross-tools{,/bin}
+
+#--> Creating soft link
+ln -svf ../proc/mounts ${LJOS}/etc/mtab
+
+cat > ${LJOS}/etc/passwd << "EOF"
+root::0:0:root:/root:/bin/ash
+EOF
+
+cat > ${LJOS}/etc/group << "EOF"
+root:x:0:
+bin:x:1:
+sys:x:2:
+kmem:x:3:
+tty:x:4:
+daemon:x:6:
+disk:x:8:
+dialout:x:10:
+video:x:12:
+utmp:x:13:
+usb:x:14:
+EOF
+
+cat > ${LJOS}/etc/fstab << "EOF"
+# file system  mount-point  type   options          dump  fsck
+#                                                         order
+
+rootfs          /               auto    defaults        1      1
+proc            /proc           proc    defaults        0      0
+sysfs           /sys            sysfs   defaults        0      0
+devpts          /dev/pts        devpts  gid=4,mode=620  0      0
+tmpfs           /dev/shm        tmpfs   defaults        0      0
+EOF
+
+cat > ${LJOS}/etc/profile << "EOF"
+export PATH=/bin:/usr/bin
+
+if [ `id -u` -eq 0 ] ; then
+        PATH=/bin:/sbin:/usr/bin:/usr/sbin
+        unset HISTFILE
+fi
+
+
+# Set up some environment variables.
+export USER=`id -un`
+export LOGNAME=$USER
+export HOSTNAME=`/bin/hostname`
+export HISTSIZE=1000
+export HISTFILESIZE=1000
+export PAGER='/bin/more '
+export EDITOR='/bin/vi'
+EOF
+
+
+echo "ljos-test" > ${LJOS}/etc/HOSTNAME
+
+cat > ${LJOS}/etc/issue<< "EOF"
+Linux Journal OS 0.1a
+Kernel \r on an \m
+
+EOF
+///////////////////////////////////////////////////////////
+cat > ${LJOS}/etc/inittab<< "EOF"
+::sysinit:/etc/rc.d/startup
+
+tty1::respawn:/sbin/getty 38400 tty1
+tty2::respawn:/sbin/getty 38400 tty2
+tty3::respawn:/sbin/getty 38400 tty3
+tty4::respawn:/sbin/getty 38400 tty4
+tty5::respawn:/sbin/getty 38400 tty5
+tty6::respawn:/sbin/getty 38400 tty6
+
+::shutdown:/etc/rc.d/shutdown
+::ctrlaltdel:/sbin/reboot
+EOF
+
+cat > ${LJOS}/etc/mdev.conf<< "EOF"
+# Devices:
+# Syntax: %s %d:%d %s
+# devices user:group mode
+
+# null does already exist; therefore ownership has to
+# be changed with command
+null    root:root 0666  @chmod 666 $MDEV
+zero    root:root 0666
+grsec   root:root 0660
+full    root:root 0666
+
+random  root:root 0666
+urandom root:root 0444
+hwrandom root:root 0660
+
+# console does already exist; therefore ownership has to
+# be changed with command
+console root:tty 0600 @mkdir -pm 755 fd && cd fd && for x in 0 1 2 3 ; do ln -sf /proc/self/fd/$x $x; done
+
+kmem    root:root 0640
+mem     root:root 0640
+port    root:root 0640
+ptmx    root:tty 0666
+
+# ram.*
+ram([0-9]*)     root:disk 0660 >rd/%1
+loop([0-9]+)    root:disk 0660 >loop/%1
+sd[a-z].*       root:disk 0660 */lib/mdev/usbdisk_link
+hd[a-z][0-9]*   root:disk 0660 */lib/mdev/ide_links
+
+tty             root:tty 0666
+tty[0-9]        root:root 0600
+tty[0-9][0-9]   root:tty 0660
+ttyO[0-9]*      root:tty 0660
+pty.*           root:tty 0660
+vcs[0-9]*       root:tty 0660
+vcsa[0-9]*      root:tty 0660
+
+ttyLTM[0-9]     root:dialout 0660 @ln -sf $MDEV modem
+ttySHSF[0-9]    root:dialout 0660 @ln -sf $MDEV modem
+slamr           root:dialout 0660 @ln -sf $MDEV slamr0
+slusb           root:dialout 0660 @ln -sf $MDEV slusb0
+fuse            root:root  0666
+
+# misc stuff
+agpgart         root:root 0660  >misc/
+psaux           root:root 0660  >misc/
+rtc             root:root 0664  >misc/
+
+# input stuff
+event[0-9]+     root:root 0640 =input/
+ts[0-9]         root:root 0600 =input/
+
+# v4l stuff
+vbi[0-9]        root:video 0660 >v4l/
+video[0-9]      root:video 0660 >v4l/
+
+# load drivers for usb devices
+usbdev[0-9].[0-9]       root:root 0660 */lib/mdev/usbdev
+usbdev[0-9].[0-9]_.*    root:root 0660
+EOF
+
+
+
+cat > ${LJOS}/boot/grub/grub.cfg<< "EOF"
+
+set default=0
+set timeout=5
+
+set root=(hd0,1)
+
+menuentry "Linux Journal OS 0.1a" {
+        linux   /boot/vmlinuz-4.16.3 root=/dev/sda1 ro quiet
+}
+EOF
+
+
+touch ${LJOS}/var/run/utmp ${LJOS}/var/log/{btmp,lastlog,wtmp}
+
+
+chmod -v 664 ${LJOS}/var/run/utmp ${LJOS}/var/log/lastlog
+
+unset CFLAGS
+unset CXXFLAGS
+
+export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/")
+export LJOS_TARGET=riscv64-unknown-linux-gnu
+export LJOS_CPU=rv64gv_zicsr_zifencei
+export LJOS_ARCH=riscv
+export LJOS_ENDIAN=little
+
+######################################### In kernel headers ################
+goto extracted linux-*.tar.xz
+
+export LJOS=/lj-os \
+export LC_ALL=POSIX \
+export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin \
+export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/") \
+export LJOS_TARGET=riscv64-unknown-linux-gnu \
+export LJOS_CPU=rv64gv_zicsr_zifencei \
+export LJOS_ARCH=riscv \
+export LJOS_ENDIAN=little
+
+echo $LJOS_ARCH
+
+# caution
+make mrproper
+
+sudo make ARCH=${LJOS_ARCH} INSTALL_HDR_PATH=dest headers_install -j$(nproc)
+
+sudo cp -rv dest/include/* ${LJOS}/usr/include
+#########################################################
+
+######################################### In binutils ################
+├── binutils
+│   └── binutils-2.39
+|   └── binutils-build
+
+goto binutils
+
+mkdir binutils-build
+cd binutils-build/
+
+export LJOS=/lj-os \
+export LC_ALL=POSIX \
+export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin \
+export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/") \
+export LJOS_TARGET=riscv64-unknown-linux-gnu \
+export LJOS_CPU=rv64gv_zicsr_zifencei \
+export LJOS_ARCH=riscv \
+export LJOS_ENDIAN=little
+
+echo $LJOS
+echo $LJOS_TARGET
+
+../binutils-2.39/configure --prefix=${LJOS}/cross-tools \
+--target=${LJOS_TARGET} --with-sysroot=${LJOS} \
+--disable-nls --enable-shared --disable-multilib
+
+make configure-host -j$(nproc) && make -j$(nproc)
+
+sudo ln -sv lib ${LJOS}/cross-tools/lib64
+
+sudo make install -j$(nproc)
+#########################################################
+https://gcc.gnu.org/onlinedocs/libstdc++/manual/configure.html
+https://www.umsl.edu/~eckerta/libstdc++/
+prerequisist and isl solution => https://gcc.gnu.org/install/prerequisites.html
+########## Install isl
+sudo dnf install isl*
+######################################### For gcc-static ################
+|-- gcc
+|    └── gcc-13.0.1-20230401
+|    └── gcc-static
+|-- mpc
+|    └── mpc-0.34
+|-- gmp
+|    └── gmp-6.2.1
+|-- mpfr
+|    └── mpfr-4.1.1
+
+$ tar xjf gmp-6.2.1.tar.bz2
+$ mv gmp-6.2.1 ../gcc/gcc-7.3.0/gmp
+$ tar xJf mpfr-4.1.1.tar.xz
+$ mv mpfr-4.1.1 ../gcc/gcc-7.3.0/mpfr
+$ tar xzf mpc-0.34.tar.gz
+$ mv mpc-0.34 ../gcc/gcc-7.3.0/mpc
+
+#in gcc
+export LJOS=/lj-os \
+export LC_ALL=POSIX \
+export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/") \
+export LJOS_TARGET=riscv64-unknown-linux-gnu \
+export LJOS_CPU=rv64gv_zicsr_zifencei \
+export LJOS_ARCH=riscv \
+export LJOS_ENDIAN=little \
+export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin
+
+echo $LJOS
+echo $LJOS_TARGET
+echo $LJOS_HOST
+echo $LJOS_CPU
+echo $PATH
+echo $(pwd)
+
+mkdir gcc-static
+cd gcc-static/
+
+#Added 
+--enable-libstdc++-v3
+--enable-libstdcxx-filesystem-ts
+--enable-libstdcxx-pch
+
+AR=ar LDFLAGS="-Wl,-rpath,${LJOS}/cross-tools/lib" \
+../gcc-13.0.1-20230401/configure --prefix=${LJOS}/cross-tools \
+--build=${LJOS_HOST} --host=${LJOS_HOST} \
+--target=${LJOS_TARGET} \
+--with-sysroot=${LJOS}/target --disable-nls \
+--disable-shared \
+--with-mpfr-include=$(pwd)/../gcc-13.0.1-20230401/mpfr/src \
+--with-mpfr-lib=$(pwd)/mpfr/src/.libs \
+--without-headers --with-newlib --disable-decimal-float \
+--disable-libgomp --disable-libmudflap --enable-libstdc++-v3 --enable-libstdcxx-filesystem-ts \
+--enable-libstdcxx-pch --disable-libssp \
+--disable-threads --enable-languages=c,c++ \
+--disable-multilib --with-arch=${LJOS_CPU} --with-isl
+
+sudo make all-gcc all-target-libgcc all-target-libstdc++-v3 -j$(nproc) && \
+sudo make install-gcc install-target-libgcc install-target-libstdc++-v3 -j$(nproc)
+
+sudo ln -vs libgcc.a `${LJOS_TARGET}-gcc -print-libgcc-file-name | sed 's/libgcc/&_eh/'`
+#########################################################
+https://gcc.gnu.org/onlinedocs/libstdc++/manual/configure.html
+######################################### In gclibc ################
+|-- glibc
+|    └── glibc-2.37
+|    └── glibc-build
+
+#in glibc
+export LJOS=/lj-os \
+export LC_ALL=POSIX \
+export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/") \
+export LJOS_TARGET=riscv64-unknown-linux-gnu \
+export LJOS_CPU=rv64gv_zicsr_zifencei \
+export LJOS_ARCH=riscv \
+export LJOS_ENDIAN=little
+
+export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin
+
+echo $LJOS
+echo $LJOS_TARGET
+echo $LJOS_HOST
+echo $LJOS_CPU
+echo $(pwd)
+echo $PATH
+
+mkdir glibc-build
+cd glibc-build/
+
+# write into confog.cache
+echo "libc_cv_forced_unwind=yes" > config.cache
+echo "libc_cv_c_cleanup=yes" >> config.cache
+echo "libc_cv_ssp=no" >> config.cache
+echo "libc_cv_ssp_strong=no" >> config.cache
+
+# BUILD_CC="gcc" CC="${LJOS_TARGET}-gcc" \
+# AR="${LJOS_TARGET}-ar" \
+# RANLIB="${LJOS_TARGET}-ranlib" CFLAGS="-O2" \
+# ../glibc-2.37/configure --prefix=/usr \
+# --host=${LJOS_TARGET} --build=${LJOS_HOST} \
+# --disable-profile --enable-add-ons --with-tls \
+# --enable-kernel=2.6.32 --with-__thread \
+# --with-binutils=${LJOS}/cross-tools/bin \
+# --with-headers=${LJOS}/usr/include \
+# --cache-file=config.cache
+
+//sudo cp -rv /${LJOS}/cross-tools/ /usr/
+//sudo cp -rv /${LJOS}/cross-tools/bin/* /sbin/
+
+//sudo cp -rv /${LJOS}/cross-tools/libexec /libexec
+//sudo cp -rv /${LJOS}/cross-tools/lib64/* /lib64
+
+BUILD_CC="gcc" CC="${LJOS_TARGET}-gcc" \
+AR="${LJOS_TARGET}-ar" \
+RANLIB="${LJOS_TARGET}-ranlib" CFLAGS="-O2" \
+../glibc-2.37/configure --prefix=/usr \
+--host=${LJOS_TARGET} --build=${LJOS_HOST} \
+--disable-profile --enable-add-ons --with-tls \
+--enable-kernel=2.6.32 --with-__thread \
+--with-binutils=${LJOS}/cross-tools/bin \
+--with-headers=${LJOS}/usr/include \
+--cache-file=config.cache
+
+#Add Flags.... try
+--with_newlib=yes
+
+make -j$(nproc) && make install_root=${LJOS}/ install -j$(nproc)
+#########################################################
+
+######################################### In gcc(Final) ################
+|-- gcc
+|    └── gcc-13.0.1-20230401
+|    └── gcc-static
+|    └── gcc-build
+|-- mpc
+|    └── mpc-0.34
+|-- gmp
+|    └── gmp-6.2.1
+|-- mpfr
+|    └── mpfr-4.1.1
+
+export LJOS=/lj-os \
+export LC_ALL=POSIX \
+export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/") \
+export LJOS_TARGET=riscv64-unknown-linux-gnu \
+export LJOS_CPU=rv64gv_zicsr_zifencei \
+export LJOS_ARCH=riscv \
+export LJOS_ENDIAN=little 
+
+export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin
+
+echo $(pwd)
+echo $LJOS_ENDIAN
+echo $LJOS_ARCH
+echo $LC_ALL
+echo $LJOS
+echo $LJOS_TARGET
+echo $LJOS_HOST
+echo $LJOS_CPU
+echo $(pwd)
+echo $PATH
+echo $CC
+echo $CXX
+echo $AR
+echo $AS
+echo $LD
+echo $RANLIB
+echo $READELF
+echo $STRIP
+
+######### in gcc ##########
+mkdir gcc-build
+cd gcc-build
+
+AR=ar LDFLAGS="-Wl,-rpath,${LJOS}/cross-tools/lib" \
+../gcc-13.0.1-20230401/configure --prefix=${LJOS}/cross-tools \
+--build=${LJOS_HOST} --target=${LJOS_TARGET} \
+--host=${LJOS_HOST} --with-sysroot=${LJOS} \
+--disable-nls --enable-shared \
+--enable-languages=c,c++ --enable-c99 \
+--enable-long-long \
+--with-mpfr-include=$(pwd)/../gcc-13.0.1-20230401/mpfr/src \
+--with-mpfr-lib=$(pwd)/mpfr/src/.libs \
+--disable-multilib --with-arch=${LJOS_CPU}
+#Add some flags
+
+make -j$(nproc) && make install -j$(nproc)
+
+cp -v ${LJOS}/cross-tools/${LJOS_TARGET}/lib64/libgcc_s.so.1 ${LJOS}/lib64
+
+export CC="${LJOS_TARGET}-gcc"
+export CXX="${LJOS_TARGET}-g++"
+export CPP="${LJOS_TARGET}-gcc -E"
+export AR="${LJOS_TARGET}-ar"
+export AS="${LJOS_TARGET}-as"
+export LD="${LJOS_TARGET}-ld"
+export RANLIB="${LJOS_TARGET}-ranlib"
+export READELF="${LJOS_TARGET}-readelf"
+export STRIP="${LJOS_TARGET}-strip"
+
+echo $(pwd)
+echo $LJOS_ENDIAN
+echo $LJOS_ARCH
+echo $LC_ALL
+echo $LJOS
+echo $LJOS_TARGET
+echo $LJOS_HOST
+echo $LJOS_CPU
+echo $(pwd)
+echo $PATH
+echo $CC
+echo $CXX
+echo $AR
+echo $AS
+echo $LD
+echo $RANLIB
+echo $READELF
+echo $STRIP
+#########################################################
+
+## old /////////////////////////////
+
+do chroot
+chroot newroot1/ /bin/bash
+
+bash-5.2# set +h
+
+bash-5.2# umask 022
+
+export LJOS=/lj-os
+mkdir -pv ${LJOS}
+
+export LC_ALL=POSIX
+export PATH=${LJOS}/cross-tools/bin:/bin:/usr/bin
+
+mkdir -pv ${LJOS}/{bin,boot/{,grub},dev,{etc/,}opt,home,lib/{firmware,modules},lib64,mnt}
+
+mkdir -pv ${LJOS}/{proc,media/{floppy,cdrom},sbin,srv,sys}
+mkdir -pv ${LJOS}/var/{lock,log,mail,run,spool}
+mkdir -pv ${LJOS}/var/{opt,cache,lib/{misc,locate},local}
+
+install -dv -m 0750 ${LJOS}/root
+install -dv -m 1777 ${LJOS}{/var,}/tmp
+install -dv ${LJOS}/etc/init.d
+
+mkdir -pv ${LJOS}/usr/{,local/}{bin,include,lib{,64},sbin,src}
+mkdir -pv ${LJOS}/usr/{,local/}share/{doc,info,locale,man}
+mkdir -pv ${LJOS}/usr/{,local/}share/{misc,terminfo,zoneinfo}
+mkdir -pv ${LJOS}/usr/{,local/}share/man/man{1,2,3,4,5,6,7,8}
+
+for dir in ${LJOS}/usr{,/local}; do
+     ln -sv share/{man,doc,info} ${dir}
+   done
+   
+o/p:-
+////////////////////////////////////////////////////
+bash-5.2# for dir in ${LJOS}/usr{,/local}; do
+>      ln -sv share/{man,doc,info} ${dir}
+>    done
+'/lj-os/usr/man' -> 'share/man'
+'/lj-os/usr/doc' -> 'share/doc'
+'/lj-os/usr/info' -> 'share/info'
+'/lj-os/usr/local/man' -> 'share/man'
+'/lj-os/usr/local/doc' -> 'share/doc'
+'/lj-os/usr/local/info' -> 'share/info'
+/////////////////////////////////////////////////
+
+install -dv ${LJOS}/cross-tools{,/bin}
+
+ln -svf ../proc/mounts ${LJOS}/etc/mtab
+//
+cat > ${LJOS}/etc/passwd << "EOF"
+root::0:0:root:/root:/bin/ash
+EOF
+
+//
+cat > ${LJOS}/etc/group << "EOF"
+root:x:0:
+bin:x:1:
+sys:x:2:
+kmem:x:3:
+tty:x:4:
+daemon:x:6:
+disk:x:8:
+dialout:x:10:
+video:x:12:
+utmp:x:13:
+usb:x:14:
+EOF
+
+//
+cat > ${LJOS}/etc/fstab << "EOF"
+# file system  mount-point  type   options          dump  fsck
+#                                                         order
+
+rootfs          /               auto    defaults        1      1
+proc            /proc           proc    defaults        0      0
+sysfs           /sys            sysfs   defaults        0      0
+devpts          /dev/pts        devpts  gid=4,mode=620  0      0
+tmpfs           /dev/shm        tmpfs   defaults        0      0
+EOF
+
+//
+cat > ${LJOS}/etc/profile << "EOF"
+export PATH=/bin:/usr/bin
+
+if [ `id -u` -eq 0 ] ; then
+        PATH=/bin:/sbin:/usr/bin:/usr/sbin
+        unset HISTFILE
+fi
+
+
+# Set up some environment variables.
+export USER=`id -un`
+export LOGNAME=$USER
+export HOSTNAME=`/bin/hostname`
+export HISTSIZE=1000
+export HISTFILESIZE=1000
+export PAGER='/bin/more '
+export EDITOR='/bin/vi'
+EOF
+
+//
+echo "ljos-test" > ${LJOS}/etc/HOSTNAME
+
+//
+cat > ${LJOS}/etc/issue<< "EOF"
+Linux Journal OS 0.1a
+Kernel \r on an \m
+
+EOF
+
+//
+cat > ${LJOS}/etc/inittab<< "EOF"
+::sysinit:/etc/rc.d/startup
+
+tty1::respawn:/sbin/getty 38400 tty1
+tty2::respawn:/sbin/getty 38400 tty2
+tty3::respawn:/sbin/getty 38400 tty3
+tty4::respawn:/sbin/getty 38400 tty4
+tty5::respawn:/sbin/getty 38400 tty5
+tty6::respawn:/sbin/getty 38400 tty6
+
+::shutdown:/etc/rc.d/shutdown
+::ctrlaltdel:/sbin/reboot
+EOF
+
+//
+cat > ${LJOS}/etc/mdev.conf<< "EOF"
+# Devices:
+# Syntax: %s %d:%d %s
+# devices user:group mode
+
+# null does already exist; therefore ownership has to
+# be changed with command
+null    root:root 0666  @chmod 666 $MDEV
+zero    root:root 0666
+grsec   root:root 0660
+full    root:root 0666
+
+random  root:root 0666
+urandom root:root 0444
+hwrandom root:root 0660
+
+# console does already exist; therefore ownership has to
+# be changed with command
+console root:tty 0600 @mkdir -pm 755 fd && cd fd && for x
+ ↪in 0 1 2 3 ; do ln -sf /proc/self/fd/$x $x; done
+
+kmem    root:root 0640
+mem     root:root 0640
+port    root:root 0640
+ptmx    root:tty 0666
+
+# ram.*
+ram([0-9]*)     root:disk 0660 >rd/%1
+loop([0-9]+)    root:disk 0660 >loop/%1
+sd[a-z].*       root:disk 0660 */lib/mdev/usbdisk_link
+hd[a-z][0-9]*   root:disk 0660 */lib/mdev/ide_links
+
+tty             root:tty 0666
+tty[0-9]        root:root 0600
+tty[0-9][0-9]   root:tty 0660
+ttyO[0-9]*      root:tty 0660
+pty.*           root:tty 0660
+vcs[0-9]*       root:tty 0660
+vcsa[0-9]*      root:tty 0660
+
+ttyLTM[0-9]     root:dialout 0660 @ln -sf $MDEV modem
+ttySHSF[0-9]    root:dialout 0660 @ln -sf $MDEV modem
+slamr           root:dialout 0660 @ln -sf $MDEV slamr0
+slusb           root:dialout 0660 @ln -sf $MDEV slusb0
+fuse            root:root  0666
+
+# misc stuff
+agpgart         root:root 0660  >misc/
+psaux           root:root 0660  >misc/
+rtc             root:root 0664  >misc/
+
+# input stuff
+event[0-9]+     root:root 0640 =input/
+ts[0-9]         root:root 0600 =input/
+
+# v4l stuff
+vbi[0-9]        root:video 0660 >v4l/
+video[0-9]      root:video 0660 >v4l/
+
+# load drivers for usb devices
+usbdev[0-9].[0-9]       root:root 0660 */lib/mdev/usbdev
+usbdev[0-9].[0-9]_.*    root:root 0660
+EOF
+
+//
+cat > ${LJOS}/boot/grub/grub.cfg<< "EOF"
+
+set default=0
+set timeout=5
+
+set root=(hd0,1)
+
+menuentry "Linux Journal OS 0.1a" {
+        linux   /boot/vmlinuz-4.16.3 root=/dev/sda1 ro quiet
+}
+EOF
+
+touch ${LJOS}/var/run/utmp ${LJOS}/var/log/{btmp,lastlog,wtmp}
+chmod -v 664 ${LJOS}/var/run/utmp ${LJOS}/var/log/lastlog
+
+unset CFLAGS
+unset CXXFLAGS
+
+///////////////// Cross-Compile /////////////////
+export LJOS_HOST=$(echo ${MACHTYPE} | sed "s/-[^-]*/-cross/")
+export LJOS_TARGET=riscv64-unknown-linux-gnu
+export LJOS_CPU=rv64gv_zicsr_zifencei
+export LJOS_ARCH=riscv
+export LJOS_ENDIAN=little
+
+CHECK:-
+bash-5.2# echo $LJOS  
+/lj-os
+bash-5.2# echo $LJOS_HOST 
+x86_64-cross-linux-gnu
+bash-5.2# echo $LJOS_TARGET/
+riscv64-unknown-linux-gnu/
+bash-5.2# echo $LJOS_CPU    
+rv64gv_zicsr_zifencei
+bash-5.2# echo $LJOS_ARCH
+riscv
+bash-5.2# echo $LJOS_ENDIAN 
+little
+/////////////////////////////////// Making Kernel Headers /////////
+//go int linux kernel folder (/packages/linux/linux-6.7.3)
+/packages/linux/linux-6.7.3# 
+	make ARCH=${LJOS_ARCH} INSTALL_HDR_PATH=dest headers_install
+Error:?
+	copy "sysroot/*" folder of cross-toolchain prefix path into prefix path
+
+
+
+AR=ar LDFLAGS="-Wl,-rpath,${LJOS}/cross-tools/lib" \
+../my_gcc/configure --prefix=${LJOS}/cross-tools \
+--build=${LJOS_HOST} --host=${LJOS_HOST} \
+--target=${LJOS_TARGET} \
+--with-sysroot=${LJOS}/target --disable-nls \
+--disable-shared \
+--with-mpfr-include=$(pwd)/../my_gcc/mpfr/src \
+--with-mpfr-lib=$(pwd)/mpfr/src/.libs \
+--without-headers --with-newlib --disable-decimal-float \
+--disable-libgomp --disable-libmudflap --disable-libssp \
+--disable-threads --enable-languages=c,c++ \
+--disable-multilib --with-arch=${LJOS_CPU}
+
+make all-gcc all-target-libgcc && \
+
+make install-gcc install-target-libgcc
+
+ln -vs libgcc.a `${LJOS_TARGET}-gcc -print-libgcc-file-name |
+ ↪sed 's/libgcc/&_eh/'`
+

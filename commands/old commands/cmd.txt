@@ -1,0 +1,3 @@
+dnf install --installroot=/mnt --releasever=39 --setopt=install_weak_deps=False --setopt=keepcache=True --assumeyes --nodocs systemd dnf glibc-langpack-en passwd rtkit policycoreutils NetworkManager audit firewalld selinux-policy-targeted kbd zchunk sudo vim-minimal systemd-udev rootfiles less iputils deltarpm sqlite lz4
+
+
