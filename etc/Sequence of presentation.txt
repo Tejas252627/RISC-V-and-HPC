@@ -1,0 +1,23 @@
+what is DIY Linux? --> build a custom and minimal Linux distribution
+Which OS? fedora
+
+build, host, target
+
+ABI, API
+gc vs gv
+
+gcc-static?
+glibc?
+gcc(Final)
+
+
+
+* start with cross-compiling toolchain
+* build a target image to install on a physical or virtual hard disk drive (How)?
+
+
+
+Environment Variable
+	PATH ==> PATH=/lj-os/cross-tools/bin:/bin:/usr/bin
+	LC_ALL ==> LC_ALL=POSIX
+	CPU ==> rv64gv_zicsr_zifencei

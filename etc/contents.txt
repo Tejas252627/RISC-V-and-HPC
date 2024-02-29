@@ -1,0 +1,26 @@
+bhanu@fedora:~/Documents/tars_glibc/tars$ tree -d -L 2
+.
+├── binutils
+│   ├── binutils-2.39
+│   └── binutils-build
+├── busybox
+├── clfs
+├── gcc
+│   ├── gcc-13.0.1-20230401
+│   ├── gcc-build
+│   └── gcc-static
+├── glibc
+│   ├── glibc-2.37
+│   └── glibc-build
+├── gmp
+│   └── gmp-6.2.1
+├── isl
+│   └── isl-0.24
+├── linux
+│   └── linux-6.7.3
+├── mpc
+│   └── mpc-0.34
+├── mpfr
+│   └── mpfr-4.1.1
+└── zlib
+
